@@ -130,6 +130,9 @@ enum class Opcode : uint16_t {
     PairedSingle,  // rbrew_ps(cpu, word): paired-single / GQR instruction (imm word)
     PairedFill,    // ps1[n] = f[n]: single-precision scalar result fills slot 1 (imm n)
     Trap,          // rbrew_trap(cpu, word, pc): tw/twi, traps when the TO condition holds
+    Unimplemented, // rbrew_unimplemented(cpu, word, pc): a decoded guest instruction
+                   // with no lowering. Fails closed with its own PC/word instead of
+                   // vanishing. Operands are (imm word, imm pc).
 
     // Register transfer
     Move,

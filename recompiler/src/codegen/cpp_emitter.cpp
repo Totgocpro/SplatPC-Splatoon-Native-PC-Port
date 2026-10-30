@@ -673,6 +673,12 @@ void CppEmitter::emit_instr(const ir::IRInstr& instr, std::ostream& out, int ind
             uint32_t(std::get<ImmOp>(instr.operands.at(0)).value), uint32_t(std::get<ImmOp>(instr.operands.at(1)).value));
         EMIT("rbrew_trap(cpu, " << text << ");"); return;
     }
+    case Opcode::Unimplemented: {
+        char text[48];
+        std::snprintf(text, sizeof text, "0x%08Xu, 0x%08Xu",
+            uint32_t(std::get<ImmOp>(instr.operands.at(0)).value), uint32_t(std::get<ImmOp>(instr.operands.at(1)).value));
+        EMIT("rbrew_unimplemented(cpu, " << text << ");"); return;
+    }
     case Opcode::PairedFill: {
         const auto n = std::get<ImmOp>(instr.operands.at(0)).value;
         EMIT("cpu->ps1[" << std::to_string(n) << "] = cpu->f[" << std::to_string(n) << "];"); return;

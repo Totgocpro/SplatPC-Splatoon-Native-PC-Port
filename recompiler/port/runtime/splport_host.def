@@ -5,6 +5,7 @@ EXPORTS
     rbrew_overlay_accessible
     rbrew_ps
     rbrew_trap
+    rbrew_unimplemented
     rbrew_lwarx
     rbrew_stwcx
     rbrew_write_memory

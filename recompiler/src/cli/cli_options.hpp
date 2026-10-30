@@ -48,6 +48,7 @@ namespace rebrewu::cli {
     bool no_codegen{false};
     bool emit_ppc_image{false}; // relocated executable bytes for opt-in fallback
     bool emit_coverage{false};  // RBREW_COVERAGE_* probes in generated code
+    bool strict_semantics{false}; // fail instead of warning on unlowered instructions
     std::string hints_file; // diagnostic: extra forced entry addresses (hex per line)
     std::string analyzer_entries_file; // external analyzer starts, corroboration only
     std::optional<uint32_t> functions_per_file;

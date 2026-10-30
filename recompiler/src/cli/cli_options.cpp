@@ -27,6 +27,7 @@ void print_usage(const char* prog) {
         "  --no-color  Disable coloured output\n"
         "  --emit-ppc-image  Emit relocated executable image for hybrid prototype\n"
         "  --emit-coverage   Emit RBREW_COVERAGE_* probes (needs RBREW_ENABLE_COVERAGE=ON)\n"
+        "  --strict-semantics  Fail when a guest instruction has no lowering\n"
         "  --hooks F         Guest entries that get a host-hook wrapper (hex per line)\n"
         "  -F, --functions-per-file N  Max functions per generated shard\n"
         "  --hints-file F    Diagnostic only: force extra entries (hex address per line)\n";
@@ -85,6 +86,8 @@ std::optional<CliOptions> parse(int argc, char** argv) {
             opts.emit_ppc_image = true;
         } else if (arg == "--emit-coverage") {
             opts.emit_coverage = true;
+        } else if (arg == "--strict-semantics") {
+            opts.strict_semantics = true;
         } else if ((arg == "--functions-per-file" || arg == "-F") && i + 1 < argc) {
             opts.functions_per_file = static_cast<uint32_t>(std::stoul(argv[++i]));
         } else if (arg.starts_with("-")) {

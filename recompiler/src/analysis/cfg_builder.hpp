@@ -9,6 +9,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace rebrewu::analysis {
   class CFGBuilder {
@@ -27,6 +28,12 @@ namespace rebrewu::analysis {
     struct InlineTableAudit { std::vector<uint32_t> targets; std::string reason; };
     InlineTableAudit audit_inline_branch(uint32_t pc) const;
 
+    // Guest instructions that decoded but had no lowering. They stay in the
+    // generated code as explicit rbrew_unimplemented calls; this is the static
+    // account of them, accumulated across every build() call on this builder.
+    struct UnimplementedInstruction { uint32_t pc, word; };
+    const std::vector<UnimplementedInstruction>& unimplemented() const { return m_unimplemented; }
+
     // Get last error
     std::string_view last_error() const { return m_last_error; }
 
@@ -44,6 +51,7 @@ namespace rebrewu::analysis {
     const rpx::RpxModule& m_module;
     Config m_cfg;
     std::string m_last_error;
+    std::vector<UnimplementedInstruction> m_unimplemented;
 
     // Helper: get bytes at guest addr
     std::optional<uint32_t> read_word(uint32_t addr) const;

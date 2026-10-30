@@ -177,6 +177,24 @@ int main(int argc, char** argv) {
                   << built_fail << " failed).\n"
                   << "Entry point: 0x" << std::hex << rpx.entry_point << "\n";
 
+    // Every decoded instruction either lowers or is reported here. Emitted
+    // code fails closed at the exact PC, so this is an account of gaps, not a
+    // silent loss.
+    const auto& unlowered = cfg_builder.unimplemented();
+    if (!unlowered.empty()) {
+        std::cerr << "warning: " << std::dec << unlowered.size()
+                  << " guest instruction(s) have no lowering and are emitted as rbrew_unimplemented\n";
+        const size_t shown = (opts->verbose || opts->strict_semantics) ? unlowered.size() : 0;
+        for (size_t i = 0; i < shown && i < 50; ++i)
+            std::cerr << "  0x" << std::hex << unlowered[i].pc << ": word 0x"
+                      << unlowered[i].word << std::dec << "\n";
+        if (shown > 50) std::cerr << "  ... " << shown - 50 << " more\n";
+        if (opts->strict_semantics) {
+            std::cerr << "error: --strict-semantics is set and instructions are unlowered\n";
+            return EXIT_FAILURE;
+        }
+    }
+
     if (opts->command == cli::Command::Audit) {
         return audit.write(rpx, ir_module, cfg_builder, opts->output_dir) ? EXIT_SUCCESS : EXIT_FAILURE;
     }

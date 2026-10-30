@@ -116,6 +116,10 @@ extern "C" RBREW_HOST_API void rbrew_ps(CPUState* cpu, uint32_t word);
 // tw/twi: evaluate the TO condition (signed lt/gt, eq, unsigned lt/gt) and,
 // when it holds, stop with a guest-trap error instead of continuing.
 extern "C" RBREW_HOST_API void rbrew_trap(CPUState* cpu, uint32_t word, uint32_t pc);
+// A guest instruction that decoded but has no native lowering. Unlike a nop,
+// this keeps the loss visible at runtime and names the exact instruction.
+// Fails closed, like rbrew_trap: logged, then thrown.
+extern "C" RBREW_HOST_API void rbrew_unimplemented(CPUState* cpu, uint32_t word, uint32_t pc);
 // Thread start values set by coreinit (decaf OSCreateThread): GQR2-5 hold
 // the u8/u16/s8/s16 quantization types, the rest are 0.
 static inline void rbrew_init_thread_gqrs(CPUState* cpu) {

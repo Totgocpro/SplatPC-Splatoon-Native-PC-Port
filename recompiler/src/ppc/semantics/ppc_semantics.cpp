@@ -79,6 +79,30 @@ static uint32_t ppc_mask(uint32_t mb, uint32_t me) {
     return mask;
 }
 
+// A decoded instruction with no lowering must never become an implicit nop:
+// the build succeeds, nothing is reported, and the guest silently loses a
+// side effect. Emit an explicit raw-word marker instead, and report failure
+// so the raising pipeline can account for the loss (see CFGBuilder).
+static bool emit_unimplemented(const Instruction& insn, IRBuilder& b) {
+    b.emit_void(Opcode::Unimplemented, {imm(insn.word), imm(insn.addr)}, insn.addr);
+    return false;
+}
+
+// Instructions whose only architectural effect is ordering or cache state,
+// which the flat coherent host arena does not model. These are nops by
+// design, not by omission. Everything else reaching a `default` case is a
+// real gap and must be reported.
+static bool nop_by_design(Mnemonic m) {
+    switch (m) {
+    case Mnemonic::DCBF: case Mnemonic::DCBI: case Mnemonic::DCBST:
+    case Mnemonic::DCBT: case Mnemonic::DCBTST: case Mnemonic::ICBI:
+    case Mnemonic::SYNC: case Mnemonic::ISYNC: case Mnemonic::EIEIO:
+        return true;
+    default:
+        return false;
+    }
+}
+
 // ---------------------------------------------------------------------------
 // top-level dispatcher
 // ---------------------------------------------------------------------------
@@ -89,7 +113,7 @@ static bool lower_core(const Instruction& insn,
     // Paired singles and GQR moves run through runtime rbrew_ps (decaf
     // semantics); unnamed opcode-4 forms stay unlowered.
     if (insn.iclass == InstrClass::Paired) {
-        if (insn.mnemonic == Mnemonic::UNKNOWN) return false;
+        if (insn.mnemonic == Mnemonic::UNKNOWN) return emit_unimplemented(insn, builder);
         builder.emit_void(Opcode::PairedSingle, {imm(insn.word)}, insn.addr);
         return true;
     }
@@ -150,12 +174,14 @@ static bool lower_core(const Instruction& insn,
             }
             return true;
         }
-        // Other cache maintenance has no effect on the host's coherent memory.
+        // Other cache maintenance has no effect on the host's coherent memory;
+        // anything else here is still a real gap.
+        if (!nop_by_design(insn.mnemonic)) return emit_unimplemented(insn, builder);
         builder.create_nop(insn.addr);
         return true;
     default:
-        builder.create_nop(insn.addr);
-        return true;
+        if (nop_by_design(insn.mnemonic)) { builder.create_nop(insn.addr); return true; }
+        return emit_unimplemented(insn, builder);
     }
 }
 
@@ -495,8 +521,7 @@ bool lower_integer(const Instruction& insn, IRBuilder& b, IRFunction& f) {
     }
 
     default:
-        b.create_nop(ga);
-        return true;
+        return emit_unimplemented(insn, b);
     }
 }
 
@@ -540,8 +565,7 @@ bool lower_compare(const Instruction& insn, IRBuilder& b, IRFunction& /*f*/) {
         return true;
 
     default:
-        b.create_nop(ga);
-        return true;
+        return emit_unimplemented(insn, b);
     }
 }
 
@@ -642,8 +666,7 @@ bool lower_rotate(const Instruction& insn, IRBuilder& b, IRFunction& f) {
     }
 
     default:
-        b.create_nop(ga);
-        return true;
+        return emit_unimplemented(insn, b);
     }
 }
 
@@ -767,9 +790,9 @@ bool lower_float(const Instruction& insn, IRBuilder& b, IRFunction& f) {
 
     case Mnemonic::FSEL: {
         // Rc requires CR1 from FPSCR, which this runtime does not yet model.
-        // Keep that form visibly unsupported in the audit rather than claim
-        // full semantics from the ordinary nonrecord value-selection rule.
-        if (insn.rc) { b.create_nop(ga); return true; }
+        // Report the record form as a named gap rather than claim full
+        // semantics from the ordinary nonrecord value-selection rule.
+        if (insn.rc) return emit_unimplemented(insn, b);
         b.emit(Opcode::FSelect, VReg::fpr(insn.rD),
                {reg(VReg::fpr(insn.rA)), reg(VReg::fpr(insn.rC)),
                 reg(VReg::fpr(insn.rB))}, ga);
@@ -777,8 +800,7 @@ bool lower_float(const Instruction& insn, IRBuilder& b, IRFunction& f) {
     }
 
     default:
-        b.create_nop(ga);
-        return true;
+        return emit_unimplemented(insn, b);
     }
 }
 
@@ -823,9 +845,9 @@ bool lower_load(const Instruction& insn, IRBuilder& b, IRFunction& f) {
         const uint32_t count = insn.rB ? insn.rB : 32u; // NB field
         const uint32_t registers = (count + 3u) / 4u;
         // These operand combinations are invalid in the architecture.
-        if (insn.rD == 0 && insn.rA == 0) return false;
+        if (insn.rD == 0 && insn.rA == 0) return emit_unimplemented(insn, b);
         for (uint32_t n = 0; n < registers; ++n)
-            if (insn.rA && ((insn.rD + n) & 31u) == insn.rA) return false;
+            if (insn.rA && ((insn.rD + n) & 31u) == insn.rA) return emit_unimplemented(insn, b);
         VReg base = b.create_add(insn.rA ? reg(VReg::gpr(insn.rA)) : imm(0u),
                                 imm(0u), ga);
         for (uint32_t n = 0; n < count; ++n) {
@@ -966,8 +988,7 @@ bool lower_load(const Instruction& insn, IRBuilder& b, IRFunction& f) {
     }
 
     default:
-        b.create_nop(ga);
-        return true;
+        return emit_unimplemented(insn, b);
     }
 }
 
@@ -1113,8 +1134,7 @@ bool lower_store(const Instruction& insn, IRBuilder& b, IRFunction& f) {
     }
 
     default:
-        b.create_nop(ga);
-        return true;
+        return emit_unimplemented(insn, b);
     }
 }
 

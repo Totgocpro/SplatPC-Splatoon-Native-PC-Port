@@ -62,10 +62,14 @@ bool AuditInventory::write(const rpx::RpxModule& rpx, const ir::IRModule& module
             if(!reachable.contains(pc))continue;
             ir::IRFunction probe;auto& b=probe.add_block(pc);ir::IRBuilder builder(probe);builder.set_insert_point(b);
             bool ok=ppc::lower_to_ir(*insn,builder,probe);
-            bool only_nop=!b.instrs.empty(), undefined=false;
-            for(const auto& op:b.instrs){only_nop &= op.opcode==ir::Opcode::Nop;undefined |= op.opcode==ir::Opcode::Undefined;}
-            if(!ok || undefined || (only_nop && insn->mnemonic!=ppc::Mnemonic::NOP))
-                j["semantics"].push_back({{"pc",pc},{"mnemonic",mnemonic},{"reason",!ok?"lowering_returns_false":undefined?"undefined_ir":"nop_lowering_review"}});
+            bool only_nop=!b.instrs.empty(), undefined=false, unimplemented=false;
+            for(const auto& op:b.instrs){only_nop &= op.opcode==ir::Opcode::Nop;
+                undefined |= op.opcode==ir::Opcode::Undefined;
+                unimplemented |= op.opcode==ir::Opcode::Unimplemented;}
+            if(!ok || undefined || unimplemented || (only_nop && insn->mnemonic!=ppc::Mnemonic::NOP))
+                j["semantics"].push_back({{"pc",pc},{"mnemonic",mnemonic},{"reason",
+                    !ok?"lowering_returns_false":undefined?"undefined_ir":
+                    unimplemented?"unimplemented_instruction":"nop_lowering_review"}});
         }
     }
     for(const auto& r:rpx.relocations) {

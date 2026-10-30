@@ -266,7 +266,8 @@ void CFGBuilder::build_blocks(ir::IRFunction& func,
             auto insn = ppc::decode(*word, pc);
             if (!insn) continue;
 
-            ppc::lower_to_ir(*insn, builder, func);
+            if (!ppc::lower_to_ir(*insn, builder, func))
+                m_unimplemented.push_back({pc, *word});
 
             // Calls (BL/BLA/BCTRL) are not block terminators — execution
             // continues at the fallthrough (PC+4).  Only true branches and

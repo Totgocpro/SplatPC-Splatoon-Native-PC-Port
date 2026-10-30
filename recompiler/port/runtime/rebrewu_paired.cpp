@@ -210,6 +210,15 @@ extern "C" void rbrew_ps(CPUState* cpu, uint32_t w) {
     undefined(w);
 }
 
+extern "C" void rbrew_unimplemented(CPUState* cpu, uint32_t w, uint32_t pc) {
+    char text[128];
+    std::snprintf(text, sizeof text,
+        "guest instruction %08X at %08X has no native lowering (lr=%08X)",
+        w, pc, cpu ? cpu->lr : 0u);
+    RBREW_LOGF(stderr, "[rbrew] %s\n", text);
+    throw std::runtime_error(text);
+}
+
 extern "C" void rbrew_trap(CPUState* cpu, uint32_t w, uint32_t pc) {
     const uint32_t to = bits(w, 6, 10), a = cpu->r[bits(w, 11, 15)];
     const uint32_t b = (w >> 26) == 3 ? uint32_t(int32_t(int16_t(w & 0xFFFFu))) : cpu->r[bits(w, 16, 20)];
